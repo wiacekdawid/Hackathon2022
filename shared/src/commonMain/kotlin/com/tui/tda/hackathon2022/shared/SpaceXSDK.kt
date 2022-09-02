@@ -26,4 +26,23 @@ class SpaceXSDK (databaseDriverFactory: DatabaseDriverFactory) {
     suspend fun getLaunch(flightNumber: Int): RocketLaunch? = withContext(Dispatchers.Default) {
         database.findLaunch(flightNumber.toLong())
     }
+
+    @Throws(Exception::class) suspend fun getLaunchesByText(queryText: String?): List<RocketLaunch> {
+        val cachedLaunches = database.getAllLaunches()
+        val finalLanches = if (cachedLaunches.isNotEmpty()) {
+            cachedLaunches
+        } else {
+            api.getAllLaunches().also {
+                database.clearDatabase()
+                database.createLaunches(it)
+            }
+        }
+        return if (queryText.orEmpty().length > 2) {
+            finalLanches.filter {
+                it.missionName.contains(queryText.orEmpty(), true)
+            }
+        } else {
+            finalLanches
+        }
+    }
 }
