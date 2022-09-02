@@ -6,23 +6,28 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SearchView
 import androidx.core.view.isVisible
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.tui.tda.hackathon2022.shared.SpaceXSDK
 import com.tui.tda.hackathon2022.shared.cache.DatabaseDriverFactory
 import com.tui.tda.hackathon2022.shared.entity.RocketLaunch
-import kotlinx.coroutines.*
+import com.tui.tda.hackathon2022.shared.viewmodel.RocketLaunchListViewModel
+import dev.icerock.moko.mvvm.createViewModelFactory
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
-    private val mainScope = MainScope()
+
+    private val viewModel = defaultViewModelProviderFactory.create(RocketLaunchListViewModel::class.java)
 
     private lateinit var launchesRecyclerView: RecyclerView
     private lateinit var progressBarView: FrameLayout
     private lateinit var swipeRefreshLayout: SwipeRefreshLayout
     private lateinit var searchView: SearchView
-
-    private val sdk = SpaceXSDK(DatabaseDriverFactory(this))
 
     private val launchesRvAdapter = LaunchesRvAdapter(listOf(), this::onRocketLaunchClicked)
 
@@ -41,67 +46,42 @@ class MainActivity : AppCompatActivity() {
 
         swipeRefreshLayout.setOnRefreshListener {
             swipeRefreshLayout.isRefreshing = false
-            displayLaunches(true)
+            viewModel.refreshLaunches()
         }
 
-        displayLaunches(false)
         initSearchView()
-    }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        mainScope.cancel()
-    }
-
-    private fun displayLaunches(needReload: Boolean) {
-        progressBarView.isVisible = true
-        mainScope.launch {
-            kotlin.runCatching {
-                sdk.getLaunches(needReload)
-            }.onSuccess {
-                launchesRvAdapter.launches = it
-                launchesRvAdapter.notifyDataSetChanged()
-            }.onFailure {
-                Toast.makeText(this@MainActivity, it.localizedMessage, Toast.LENGTH_SHORT).show()
+        lifecycleScope.launch {
+            progressBarView.isVisible = true
+            viewModel.launches.filterNotNull().collectLatest {
+                if (it.isSuccess) {
+                    launchesRvAdapter.launches = it.getOrThrow()
+                    launchesRvAdapter.notifyDataSetChanged()
+                    progressBarView.isVisible = false
+                } else {
+                    Toast.makeText(this@MainActivity, it.exceptionOrNull()?.localizedMessage, Toast.LENGTH_SHORT).show()
+                }
             }
-            progressBarView.isVisible = false
         }
     }
 
-    private var searchJob: Job? = null
+    override fun getDefaultViewModelProviderFactory(): ViewModelProvider.Factory {
+        return createViewModelFactory {
+            RocketLaunchListViewModel(SpaceXSDK(DatabaseDriverFactory(this)))
+        }
+    }
 
     private fun initSearchView() {
         searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
             override fun onQueryTextSubmit(query: String?): Boolean {
-                searchJob = mainScope.launch {
-                    delay(500)
-                    kotlin.runCatching {
-                        sdk.getLaunchesByText(query)
-                    }.onSuccess {
-                        launchesRvAdapter.launches = it
-                        launchesRvAdapter.notifyDataSetChanged()
-                    }.onFailure {
-                        Toast.makeText(this@MainActivity, it.localizedMessage, Toast.LENGTH_SHORT).show()
-                    }
-                }
+                viewModel.updateSearchQuery(query ?: "")
                 return true
             }
 
             override fun onQueryTextChange(newText: String?): Boolean {
-                searchJob = mainScope.launch {
-                    delay(500)
-                    kotlin.runCatching {
-                        sdk.getLaunchesByText(newText)
-                    }.onSuccess {
-                        launchesRvAdapter.launches = it
-                        launchesRvAdapter.notifyDataSetChanged()
-                    }.onFailure {
-                        Toast.makeText(this@MainActivity, it.localizedMessage, Toast.LENGTH_SHORT).show()
-                    }
-                }
+                viewModel.updateSearchQuery(newText ?: "")
                 return true
             }
-
         })
     }
 

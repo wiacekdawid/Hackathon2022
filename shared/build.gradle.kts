@@ -14,6 +14,11 @@ kotlin {
     iosArm64()
     iosSimulatorArm64()
 
+    val ktorVersion = "2.0.2"
+    val sqlDelightVersion = "1.5.3"
+    val coroutinesVersion = "1.6.2"
+    val mokoMvvmVersion = "0.13.0"
+
     cocoapods {
         summary = "Some description for the Shared Module"
         homepage = "Link to the Shared Module homepage"
@@ -21,12 +26,11 @@ kotlin {
         podfile = project.file("../iosApp/Podfile")
         framework {
             baseName = "shared"
+
+            export("dev.icerock.moko:mvvm-core:$mokoMvvmVersion")
+            export("dev.icerock.moko:mvvm-flow:$mokoMvvmVersion")
         }
     }
-
-    val ktorVersion = "2.0.2"
-    val sqlDelightVersion = "1.5.3"
-    val coroutinesVersion = "1.6.2"
 
     sourceSets {
         val commonMain by getting {
@@ -36,6 +40,8 @@ kotlin {
                 implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
                 implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
                 implementation("com.squareup.sqldelight:runtime:$sqlDelightVersion")
+                api("dev.icerock.moko:mvvm-core:$mokoMvvmVersion")
+                api("dev.icerock.moko:mvvm-flow:$mokoMvvmVersion")
             }
         }
         val commonTest by getting {
@@ -47,6 +53,7 @@ kotlin {
             dependencies {
                 implementation("io.ktor:ktor-client-android:$ktorVersion")
                 implementation("com.squareup.sqldelight:android-driver:$sqlDelightVersion")
+                api("dev.icerock.moko:mvvm-flow-compose:$mokoMvvmVersion")
             }
         }
         val androidTest by getting

@@ -8,17 +8,20 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
-import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.tui.tda.hackathon2022.shared.SpaceXSDK
 import com.tui.tda.hackathon2022.shared.cache.DatabaseDriverFactory
 import com.tui.tda.hackathon2022.shared.entity.RocketLaunch
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.cancel
+import com.tui.tda.hackathon2022.shared.viewmodel.RocketLaunchDetailsViewModel
+import dev.icerock.moko.mvvm.createViewModelFactory
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 
 class RocketLaunchDetailsDialog : BottomSheetDialogFragment() {
@@ -33,8 +36,7 @@ class RocketLaunchDetailsDialog : BottomSheetDialogFragment() {
         }
     }
 
-    private val mainScope = MainScope()
-    private val sdk by lazy { SpaceXSDK(DatabaseDriverFactory(requireContext())) }
+    private val viewModel by lazy { defaultViewModelProviderFactory.create(RocketLaunchDetailsViewModel::class.java) }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
         return inflater.inflate(R.layout.dialog_rocket_launch, container, false)
@@ -42,8 +44,6 @@ class RocketLaunchDetailsDialog : BottomSheetDialogFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        val flightNumber = arguments?.getInt(KEY_ROCKET_LAUNCH_FLIGHT_NUMBER) ?: error("No rocket_launch_flight_number parameter specified")
 
         val missionNameTextView = view.findViewById<TextView>(R.id.missionName)
         val launchYearTextView = view.findViewById<TextView>(R.id.launchYear)
@@ -53,50 +53,49 @@ class RocketLaunchDetailsDialog : BottomSheetDialogFragment() {
         val missionDetailsTextView = view.findViewById<TextView>(R.id.details)
         val viewArticleButton = view.findViewById<Button>(R.id.articleButton)
 
-        mainScope.launch {
-            kotlin.runCatching {
-                sdk.getLaunch(flightNumber)
-            }.onSuccess { launch ->
-                if (launch == null) {
-                    dismiss()
+        lifecycleScope.launch {
+            viewModel.rocketLaunch.filterNotNull().collectLatest { launch ->
+                missionNameTextView.text = launch.missionName
+                launchYearTextView.text = getString(R.string.launch_year_field, launch.launchYear.toString())
+                rocketNameTextView.text = getString(R.string.rocket_name_field, launch.rocket.name)
+                if (launch.details == null) {
+                    missionDetailsLabelTextView.isGone = true
+                    missionDetailsTextView.isGone = true
                 } else {
-                    missionNameTextView.text = launch.missionName
-                    launchYearTextView.text = getString(R.string.launch_year_field, launch.launchYear.toString())
-                    rocketNameTextView.text = getString(R.string.rocket_name_field, launch.rocket.name)
-                    if (launch.details == null) {
-                        missionDetailsLabelTextView.isGone = true
-                        missionDetailsTextView.isGone = true
-                    } else {
-                        missionDetailsTextView.text = launch.details
-                    }
+                    missionDetailsTextView.text = launch.details
+                }
 
-                    val launchSuccess = launch.launchSuccess
-                    if (launchSuccess != null) {
-                        if (launchSuccess) {
-                            launchSuccessTextView.text = getString(R.string.successful)
-                            launchSuccessTextView.setTextColor((ContextCompat.getColor(requireContext(), R.color.colorSuccessful)))
-                        } else {
-                            launchSuccessTextView.text = getString(R.string.unsuccessful)
-                            launchSuccessTextView.setTextColor((ContextCompat.getColor(requireContext(), R.color.colorUnsuccessful)))
-                        }
+                val launchSuccess = launch.launchSuccess
+                if (launchSuccess != null) {
+                    if (launchSuccess) {
+                        launchSuccessTextView.text = getString(R.string.successful)
+                        launchSuccessTextView.setTextColor((ContextCompat.getColor(requireContext(), R.color.colorSuccessful)))
                     } else {
-                        launchSuccessTextView.text = getString(R.string.no_data)
-                        launchSuccessTextView.setTextColor((ContextCompat.getColor(requireContext(), R.color.colorNoData)))
+                        launchSuccessTextView.text = getString(R.string.unsuccessful)
+                        launchSuccessTextView.setTextColor((ContextCompat.getColor(requireContext(), R.color.colorUnsuccessful)))
                     }
+                } else {
+                    launchSuccessTextView.text = getString(R.string.no_data)
+                    launchSuccessTextView.setTextColor((ContextCompat.getColor(requireContext(), R.color.colorNoData)))
+                }
 
-                    val articleUrl = launch.links.articleUrl
-                    if (articleUrl == null) {
-                        viewArticleButton.isGone = true
-                    } else {
-                        viewArticleButton.isVisible = true
-                        viewArticleButton.setOnClickListener {
-                            openArticle(articleUrl)
-                        }
+                val articleUrl = launch.links.articleUrl
+                if (articleUrl == null) {
+                    viewArticleButton.isGone = true
+                } else {
+                    viewArticleButton.isVisible = true
+                    viewArticleButton.setOnClickListener {
+                        openArticle(articleUrl)
                     }
                 }
-            }.onFailure {
-                Toast.makeText(requireContext(), it.localizedMessage, Toast.LENGTH_SHORT).show()
             }
+        }
+    }
+
+    override fun getDefaultViewModelProviderFactory(): ViewModelProvider.Factory {
+        val flightNumber = arguments?.getInt(KEY_ROCKET_LAUNCH_FLIGHT_NUMBER) ?: error("No rocket_launch_flight_number parameter specified")
+        return createViewModelFactory {
+            RocketLaunchDetailsViewModel(flightNumber, SpaceXSDK(DatabaseDriverFactory(requireContext())))
         }
     }
 
@@ -105,10 +104,5 @@ class RocketLaunchDetailsDialog : BottomSheetDialogFragment() {
             data = Uri.parse(link)
         }
         startActivity(intent)
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        mainScope.cancel()
     }
 }
