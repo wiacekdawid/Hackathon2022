@@ -4,6 +4,8 @@ import com.tui.tda.hackathon2022.shared.cache.Database
 import com.tui.tda.hackathon2022.shared.cache.DatabaseDriverFactory
 import com.tui.tda.hackathon2022.shared.entity.RocketLaunch
 import com.tui.tda.hackathon2022.shared.network.SpaceXApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class SpaceXSDK (databaseDriverFactory: DatabaseDriverFactory) {
     private val database = Database(databaseDriverFactory)
@@ -19,5 +21,9 @@ class SpaceXSDK (databaseDriverFactory: DatabaseDriverFactory) {
                 database.createLaunches(it)
             }
         }
+    }
+
+    suspend fun getLaunch(flightNumber: Int): RocketLaunch? = withContext(Dispatchers.Default) {
+        database.findLaunch(flightNumber.toLong())
     }
 }

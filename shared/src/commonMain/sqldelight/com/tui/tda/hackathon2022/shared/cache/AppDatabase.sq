@@ -38,3 +38,9 @@ selectAllLaunchesInfo:
 SELECT Launch.*, Rocket.*
 FROM Launch
 LEFT JOIN Rocket ON Rocket.id == Launch.rocketId;
+
+findLaunchInfo:
+SELECT Launch.*, Rocket.*
+FROM Launch
+LEFT JOIN Rocket ON Rocket.id == Launch.rocketId
+WHERE flightNumber = ?;

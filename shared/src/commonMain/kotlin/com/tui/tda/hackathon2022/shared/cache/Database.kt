@@ -19,6 +19,10 @@ internal class Database(databaseDriverFactory: DatabaseDriverFactory) {
         return dbQuery.selectAllLaunchesInfo(::mapLaunchSelecting).executeAsList()
     }
 
+    fun findLaunch(flightNumber: Long): RocketLaunch? {
+        return dbQuery.findLaunchInfo(flightNumber, ::mapLaunchSelecting).executeAsOneOrNull()
+    }
+
     private fun mapLaunchSelecting(
         flightNumber: Long,
         missionName: String,

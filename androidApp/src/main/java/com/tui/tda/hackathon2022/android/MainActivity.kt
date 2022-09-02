@@ -4,12 +4,14 @@ import android.os.Bundle
 import android.widget.FrameLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.tui.tda.hackathon2022.shared.SpaceXSDK
 import com.tui.tda.hackathon2022.shared.cache.DatabaseDriverFactory
+import com.tui.tda.hackathon2022.shared.entity.RocketLaunch
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -23,7 +25,7 @@ class MainActivity : AppCompatActivity() {
 
     private val sdk = SpaceXSDK(DatabaseDriverFactory(this))
 
-    private val launchesRvAdapter = LaunchesRvAdapter(listOf())
+    private val launchesRvAdapter = LaunchesRvAdapter(listOf(), this::onRocketLaunchClicked)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,5 +65,10 @@ class MainActivity : AppCompatActivity() {
             }
             progressBarView.isVisible = false
         }
+    }
+
+    private fun onRocketLaunchClicked(rocketLaunch: RocketLaunch) {
+        val bottomSheet = RocketLaunchDetailsDialog.newInstance(rocketLaunch)
+        bottomSheet.show(supportFragmentManager, null)
     }
 }

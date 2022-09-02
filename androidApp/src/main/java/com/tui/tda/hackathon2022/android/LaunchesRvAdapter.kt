@@ -8,12 +8,12 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.tui.tda.hackathon2022.shared.entity.RocketLaunch
 
-class LaunchesRvAdapter(var launches: List<RocketLaunch>) : RecyclerView.Adapter<LaunchesRvAdapter.LaunchViewHolder>() {
+class LaunchesRvAdapter(var launches: List<RocketLaunch>, private val onLaunchClicked: (RocketLaunch) -> Unit) : RecyclerView.Adapter<LaunchesRvAdapter.LaunchViewHolder>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): LaunchViewHolder {
         return LayoutInflater.from(parent.context)
             .inflate(R.layout.item_launch, parent, false)
-            .run(::LaunchViewHolder)
+            .run { LaunchViewHolder(this, onLaunchClicked) }
     }
 
     override fun getItemCount(): Int = launches.count()
@@ -22,7 +22,7 @@ class LaunchesRvAdapter(var launches: List<RocketLaunch>) : RecyclerView.Adapter
         holder.bindData(launches[position])
     }
 
-    inner class LaunchViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    inner class LaunchViewHolder(itemView: View, private val onClick: (RocketLaunch) -> Unit) : RecyclerView.ViewHolder(itemView) {
         private val missionNameTextView = itemView.findViewById<TextView>(R.id.missionName)
         private val launchYearTextView = itemView.findViewById<TextView>(R.id.launchYear)
         private val launchSuccessTextView = itemView.findViewById<TextView>(R.id.launchSuccess)
@@ -45,6 +45,10 @@ class LaunchesRvAdapter(var launches: List<RocketLaunch>) : RecyclerView.Adapter
             } else {
                 launchSuccessTextView.text = ctx.getString(R.string.no_data)
                 launchSuccessTextView.setTextColor((ContextCompat.getColor(itemView.context, R.color.colorNoData)))
+            }
+
+            itemView.setOnClickListener {
+                onClick(launch)
             }
         }
     }
